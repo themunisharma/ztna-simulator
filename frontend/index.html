@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zero Trust ZTNA Simulator</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222536;
+  --border:#2a2d3e;--text:#e2e8f0;--muted:#8892a4;--dim:#555f6e;
+  --blue:#3b82f6;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--purple:#a855f7;
+  --r:10px;--mono:'Courier New',monospace
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh}
+/* layout */
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:0 18px}
+.brand{font-size:15px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:7px}
+.spacer{flex:1}
+.main{display:grid;grid-template-columns:340px 1fr;overflow:hidden;height:calc(100vh - 52px)}
+aside{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.content{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+/* cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 15px}
+.card-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:11px;display:flex;align-items:center;gap:5px}
+/* badges */
+.badge{font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px}
+.b-blue{background:#1e3a5f;color:#93c5fd}.b-green{background:#14532d;color:#86efac}
+.b-amber{background:#451a03;color:#fcd34d}.b-red{background:#450a0a;color:#fca5a5}
+.b-purple{background:#2e1065;color:#d8b4fe}.b-gray{background:#1e2130;color:var(--muted)}
+/* forms */
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+select,input[type=text],input[type=password]{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;outline:none}
+select:focus,input:focus{border-color:var(--blue)}
+.frow{margin-bottom:9px}
+input[type=range]{width:100%;accent-color:var(--blue)}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;padding:7px 14px;border-radius:6px;border:none;cursor:pointer;transition:opacity .15s}
+.btn:hover{opacity:.85}.btn:active{opacity:.7}
+.btn-primary{background:var(--blue);color:#fff;width:100%;justify-content:center}
+.btn-red{background:var(--red);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-sm{padding:4px 10px;font-size:12px}
+/* login */
+#overlay{position:fixed;inset:0;background:#000a;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:999}
+.lbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:26px 22px;width:310px}
+.ltitle{font-size:17px;font-weight:600;color:var(--blue);margin-bottom:2px}
+.lsub{font-size:12px;color:var(--muted);margin-bottom:18px}
+.lerr{color:var(--red);font-size:12px;margin-top:7px;min-height:16px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:14px}
+.chip{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 9px;font-size:11px;color:var(--muted);cursor:pointer}
+.chip:hover{border-color:var(--blue);color:var(--text)}
+/* score bar */
+.sbar-wrap{height:7px;background:var(--bg);border-radius:4px;overflow:hidden;margin:5px 0}
+.sbar-fill{height:7px;border-radius:4px;transition:width .4s,background .4s}
+/* verdict */
+.verdict{border-radius:8px;padding:11px 13px;margin-top:9px}
+.v-allow{background:#052e16;border:1px solid #15803d}
+.v-mfa{background:#422006;border:1px solid #b45309}
+.v-deny{background:#450a0a;border:1px solid #b91c1c}
+.vt{font-size:14px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.v-allow .vt{color:#86efac}.v-mfa .vt{color:#fcd34d}.v-deny .vt{color:#fca5a5}
+.vr{font-size:12px;opacity:.8}
+.v-allow .vr{color:#86efac}.v-mfa .vr{color:#fcd34d}.v-deny .vr{color:#fca5a5}
+/* factors */
+.fac{display:flex;align-items:center;gap:7px;margin:3px 0}
+.fac-name{font-size:12px;color:var(--muted);min-width:108px}
+.fac-track{flex:1;height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+.fac-fill{height:5px;border-radius:3px}
+.fac-score{font-size:12px;font-weight:500;color:var(--text);min-width:26px;text-align:right}
+/* stats */
+.srow{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px}
+.sl{font-size:11px;color:var(--muted);margin-bottom:3px}
+.sv{font-size:21px;font-weight:600}
+/* table */
+.tbl-wrap{overflow-x:auto;max-height:360px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--bg);color:var(--muted);font-weight:500;text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);position:sticky;top:0}
+td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:#ffffff05}
+.mono{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:24px;font-size:13px}
+/* sim */
+.sim-item{border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:7px}
+.sim-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.sim-title{font-size:13px;font-weight:500}
+.sim-meta{font-size:11px;color:var(--muted);margin-top:3px}
+/* tabs */
+.tabs{display:flex;gap:3px;border-bottom:1px solid var(--border);margin-bottom:13px}
+.tab{padding:7px 13px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:4px}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.panel{display:none}.panel.active{display:block}
+/* user bar */
+.ubar{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--bg);border-radius:8px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+.uname{font-size:13px;font-weight:500}
+.urole{font-size:11px;color:var(--muted)}
+/* charts */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.cbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 15px}
+.cbox canvas{max-height:190px}
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────── -->
+<div id="overlay">
+  <div class="lbox">
+    <div class="ltitle"><i class="ti ti-shield-lock"></i> ZTNA Simulator</div>
+    <div class="lsub">Sign in to access the SOC dashboard</div>
+    <div class="frow"><label>Username</label>
+      <input type="text" id="lu" placeholder="alice" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="frow"><label>Password</label>
+      <input type="password" id="lp" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-primary" onclick="doLogin()"><i class="ti ti-login"></i> Sign in</button>
+    <div class="lerr" id="lerr"></div>
+    <div style="margin-top:12px;font-size:11px;color:var(--muted)">Quick fill:</div>
+    <div class="chips">
+      <div class="chip" onclick="fill('alice','admin@123')">alice / Admin</div>
+      <div class="chip" onclick="fill('bob','dev@123')">bob / Developer</div>
+      <div class="chip" onclick="fill('charlie','intern@123')">charlie / Intern</div>
+      <div class="chip" onclick="fill('unknown_user','unknown@123')">unknown_user</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP ───────────────────────────────────────────────── -->
+<div class="app" id="app" style="display:none">
+  <nav>
+    <div class="brand"><i class="ti ti-shield-check"></i> ZTNA Simulator</div>
+    <span class="badge b-blue" style="font-size:10px">NIST SP 800-207</span>
+    <div class="spacer"></div>
+    <span id="nav-user" class="badge b-gray"></span>
+    <button class="btn btn-outline btn-sm" onclick="logout()" style="margin-left:6px"><i class="ti ti-logout"></i> Logout</button>
+  </nav>
+
+  <div class="main">
+    <!-- SIDEBAR -->
+    <aside>
+      <div id="ubar-wrap"></div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-send"></i> Access Request</div>
+        <div class="frow"><label>Target resource</label>
+          <select id="f-res" onchange="liveEval()">
+            <option value="public_wiki">Public Wiki</option>
+            <option value="dev_env">Dev Environment</option>
+            <option value="prod_db">Production Database</option>
+            <option value="admin_panel">Admin Control Panel</option>
+          </select></div>
+        <div class="frow"><label>Device health</label>
+          <select id="f-dev" onchange="liveEval()">
+            <option value="managed">Managed + patched</option>
+            <option value="personal">Personal device</option>
+            <option value="unpatched">Unpatched (CVEs present)</option>
+            <option value="unknown_device">Unknown device</option>
+          </select></div>
+        <div class="frow"><label>Login location</label>
+          <select id="f-loc" onchange="liveEval()">
+            <option value="office">Office (trusted)</option>
+            <option value="home_vpn">Home VPN</option>
+            <option value="public_wifi">Public Wi-Fi</option>
+            <option value="foreign">Foreign country</option>
+          </select></div>
+        <div class="frow"><label>Login hour (0–23)</label>
+          <select id="f-hr" onchange="liveEval()">
+            <option value="10">10:00 — Business hours</option>
+            <option value="19">19:00 — Evening</option>
+            <option value="2">02:00 — Late night</option>
+            <option value="7">07:00 — Early morning</option>
+          </select></div>
+        <div class="frow">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <label style="margin:0">Failed logins recently</label>
+            <strong id="f-fout" style="color:var(--amber);font-size:13px">0</strong>
+          </div>
+          <input type="range" id="f-f" min="0" max="5" value="0" style="margin-top:5px"
+            oninput="document.getElementById('f-fout').textContent=this.value;liveEval()">
+        </div>
+        <button class="btn btn-primary" id="sendbtn" onclick="sendReq()">
+          <i class="ti ti-player-play"></i> Send Request</button>
+      </div>
+
+      <div class="card" id="score-card" style="display:none">
+        <div class="card-title"><i class="ti ti-chart-bar"></i> Risk Score Breakdown</div>
+        <div id="facs"></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px">
+          <span style="font-size:12px;color:var(--muted)">Total risk score</span>
+          <span id="score-num" style="font-size:26px;font-weight:600">0</span>
+        </div>
+        <div class="sbar-wrap"><div class="sbar-fill" id="score-bar" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim)">
+          <span>0 — safe</span><span>100 — critical</span></div>
+        <div id="vbox"></div>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="srow">
+        <div class="scard"><div class="sl">Total Requests</div><div class="sv" id="s-total" style="color:var(--blue)">0</div></div>
+        <div class="scard"><div class="sl">Allowed</div><div class="sv" id="s-allow" style="color:var(--green)">0</div></div>
+        <div class="scard"><div class="sl">MFA Required</div><div class="sv" id="s-mfa" style="color:var(--amber)">0</div></div>
+        <div class="scard"><div class="sl">Denied</div><div class="sv" id="s-deny" style="color:var(--red)">0</div></div>
+      </div>
+
+      <div>
+        <div class="tabs">
+          <div class="tab active" onclick="tab('logs',this)"><i class="ti ti-list"></i> Logs</div>
+          <div class="tab" onclick="tab('charts',this)"><i class="ti ti-chart-bar"></i> Analytics</div>
+          <div class="tab" onclick="tab('attack',this)"><i class="ti ti-alert-triangle"></i> Attack Sim</div>
+          <div class="tab" onclick="tab('users',this)"><i class="ti ti-users"></i> Users</div>
+        </div>
+
+        <div id="p-logs" class="panel active">
+          <div class="card">
+            <div class="card-title" style="justify-content:space-between">
+              <span><i class="ti ti-table"></i> Access Log</span>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-outline btn-sm" onclick="loadLogs()"><i class="ti ti-refresh"></i> Refresh</button>
+                <button class="btn btn-outline btn-sm" id="clrbtn" style="display:none" onclick="clearLogs()"><i class="ti ti-trash"></i> Clear</button>
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table><thead><tr>
+                <th>Time</th><th>User</th><th>Role</th><th>Resource</th>
+                <th>Location</th><th>Device</th><th>Score</th><th>Verdict</th>
+              </tr></thead>
+              <tbody id="log-body"><tr><td colspan="8" class="empty">No requests yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="p-charts" class="panel">
+          <div class="chart-grid">
+            <div class="cbox">
+              <div class="card-title"><i class="ti ti-chart-donut"></i> Verdict distribution</div>
+              <canvas id="ch-verdict"></canvas>
+            </div>
+            <div class="cbox">
+              <div class="card-title"><i class="ti ti-chart-bar"></i> Score distribution</div>
+              <canvas id="ch-score"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div id="p-attack" class="panel">
+          <div class="card">
+            <div class="card-title" style="justify-content:space-between">
+              <span><i class="ti ti-alert-triangle"></i> Attack Simulation</span>
+              <button class="btn btn-red btn-sm" onclick="runSim()"><i class="ti ti-player-play"></i> Run 5 Scenarios</button>
+            </div>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:13px">
+              Replays 5 real-world attack scenarios to show how Zero Trust blocks them even when traditional VPN would allow them.
+            </p>
+            <div id="sim-out"></div>
+          </div>
+        </div>
+
+        <div id="p-users" class="panel">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-users"></i> System users</div>
+            <div class="tbl-wrap">
+              <table><thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Department</th><th>Trust</th></tr></thead>
+              <tbody id="users-body"><tr><td colspan="5" class="empty">Admin login required.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// ── CONFIG: replace with your Render URL after deploying ──────
+const API = 'https://ztna-simulator.onrender.com';
+// For local dev change to: const API = 'http://localhost:8000';
+
+let token = null, me = null;
+let localStats = {total:0,allow:0,mfa:0,deny:0};
+let scoreHist = [];
+let vChart = null, sChart = null;
+
+// ── Login ─────────────────────────────────────────────────────
+function fill(u,p){document.getElementById('lu').value=u;document.getElementById('lp').value=p}
+
+async function doLogin(){
+  const u=document.getElementById('lu').value.trim();
+  const p=document.getElementById('lp').value;
+  document.getElementById('lerr').textContent='';
+  try{
+    const r=await fetch(`${API}/login`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:u,password:p})});
+    if(!r.ok){const e=await r.json();document.getElementById('lerr').textContent=e.detail||'Login failed';return}
+    const d=await r.json();
+    token=d.access_token;
+    me={username:d.username||u,full_name:d.full_name,role:d.role,trust_level:d.trust_level};
+    const meR=await api('/me');
+    me={...me,...meR};
+    showApp();
+  }catch(e){document.getElementById('lerr').textContent='Cannot connect to backend. Check the API URL in index.html'}
+}
+
+function logout(){token=null;me=null;document.getElementById('overlay').style.display='flex';document.getElementById('app').style.display='none'}
+
+function showApp(){
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('app').style.display='grid';
+  document.getElementById('nav-user').textContent=`${me.full_name} — ${me.role}`;
+  const ini=me.full_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('ubar-wrap').innerHTML=`<div class="ubar">
+    <div class="avatar">${ini}</div>
+    <div><div class="uname">${me.full_name}</div>
+    <div class="urole">${me.role} · trust ${me.trust_level}% · ${me.department||''}</div></div></div>`;
+  if(me.role==='admin'){document.getElementById('clrbtn').style.display='inline-flex'}
+  liveEval(); loadLogs(); loadStats();
+  if(me.role==='admin') loadUsers();
+  initCharts();
+}
+
+// ── API helper ────────────────────────────────────────────────
+async function api(path,opts={}){
+  const r=await fetch(`${API}${path}`,{...opts,headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`,...(opts.headers||{})}});
+  if(!r.ok){const e=await r.json().catch(()=>({detail:'Error'}));throw new Error(e.detail||`HTTP ${r.status}`)}
+  return r.json();
+}
+
+// ── Live preview (no network, mirrors backend logic) ──────────
+function liveEval(){
+  if(!me) return;
+  const res=document.getElementById('f-res').value;
+  const dev=document.getElementById('f-dev').value;
+  const loc=document.getElementById('f-loc').value;
+  const hr=parseInt(document.getElementById('f-hr').value);
+  const f=parseInt(document.getElementById('f-f').value);
+
+  const RBAC={admin:{public_wiki:true,dev_env:true,prod_db:true,admin_panel:true},
+    developer:{public_wiki:true,dev_env:true,prod_db:false,admin_panel:false},
+    intern:{public_wiki:true,dev_env:false,prod_db:false,admin_panel:false},
+    unknown:{public_wiki:false,dev_env:false,prod_db:false,admin_panel:false}};
+  const rbac=(RBAC[me.role]||{})[res]||false;
+
+  if(!rbac){showVerdict('DENY',100,[],false,`RBAC denial — role '${me.role}' cannot access '${res}'`);
+    document.getElementById('score-card').style.display='block';return}
+
+  const t=me.trust_level;
+  const is=t>=90?0:t>=70?15:t>=30?35:60;
+  const ds={managed:0,personal:20,unpatched:40,unknown_device:60}[dev]??60;
+  const ls={office:0,home_vpn:10,public_wifi:30,foreign:50}[loc]??50;
+  const ts=(hr>=9&&hr<18)?0:(hr>=18&&hr<23)?10:(hr>=23||hr<5)?25:15;
+  const fs=f===0?0:f<=2?16:f<=4?32:40;
+  const score=Math.min(is+ds+ls+ts+fs,100);
+
+  const facs=[
+    {name:'Identity Trust',score:is,max:60,color:'#3b82f6'},
+    {name:'Device Health', score:ds,max:60,color:'#22c55e'},
+    {name:'Location',      score:ls,max:50,color:'#f59e0b'},
+    {name:'Access Time',   score:ts,max:25,color:'#a855f7'},
+    {name:'Failed Logins', score:fs,max:40,color:'#ef4444'},
+  ];
+
+  const sens={public_wiki:1,dev_env:3,prod_db:5,admin_panel:5}[res]||1;
+  let verdict,reason;
+  if(score>=70){verdict='DENY';reason=`Risk score ${score}/100 exceeds threshold`}
+  else if(score>=35||sens>=4){verdict='MFA_REQUIRED';reason=`MFA required — score ${score}/100`}
+  else{verdict='ALLOW';reason=`Score ${score}/100 — access granted`}
+
+  showVerdict(verdict,score,facs,true,reason);
+  document.getElementById('score-card').style.display='block';
+}
+
+function showVerdict(verdict,score,facs,rbac,reason){
+  document.getElementById('facs').innerHTML=facs.map(f=>{
+    const pct=Math.round((f.score/f.max)*100);
+    return `<div class="fac"><span class="fac-name">${f.name}</span>
+      <div class="fac-track"><div class="fac-fill" style="width:${pct}%;background:${f.color}"></div></div>
+      <span class="fac-score">+${f.score}</span></div>`;
+  }).join('');
+  document.getElementById('score-num').textContent=score;
+  const bar=document.getElementById('score-bar');
+  bar.style.width=score+'%';
+  bar.style.background=score>=70?'#ef4444':score>=35?'#f59e0b':'#22c55e';
+  const icons={ALLOW:'ti-shield-check',MFA_REQUIRED:'ti-device-mobile',DENY:'ti-shield-x'};
+  const cls={ALLOW:'v-allow',MFA_REQUIRED:'v-mfa',DENY:'v-deny'};
+  const titles={ALLOW:'Access Allowed',MFA_REQUIRED:'MFA Required',DENY:'Access Denied'};
+  document.getElementById('vbox').innerHTML=`<div class="verdict ${cls[verdict]}">
+    <div class="vt"><i class="ti ${icons[verdict]}"></i>${titles[verdict]}</div>
+    <div class="vr">${reason}</div></div>`;
+}
+
+// ── Send real request ─────────────────────────────────────────
+async function sendReq(){
+  const btn=document.getElementById('sendbtn');
+  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Sending...';
+  try{
+    const data=await api('/request-access',{method:'POST',body:JSON.stringify({
+      resource:document.getElementById('f-res').value,
+      device_health:document.getElementById('f-dev').value,
+      location:document.getElementById('f-loc').value,
+      login_hour:parseInt(document.getElementById('f-hr').value),
+      failed_logins:parseInt(document.getElementById('f-f').value)
+    })});
+    localStats.total++;
+    if(data.verdict==='ALLOW') localStats.allow++;
+    else if(data.verdict==='MFA_REQUIRED') localStats.mfa++;
+    else localStats.deny++;
+    scoreHist.push(data.risk_score);
+    updateStats(); updateCharts(); loadLogs();
+  }catch(e){alert('Error: '+e.message)}
+  finally{btn.disabled=false;btn.innerHTML='<i class="ti ti-player-play"></i> Send Request'}
+}
+
+// ── Logs ──────────────────────────────────────────────────────
+async function loadLogs(){
+  try{
+    const d=await api('/logs?limit=100');
+    const body=document.getElementById('log-body');
+    if(!d.logs||!d.logs.length){body.innerHTML='<tr><td colspan="8" class="empty">No requests yet.</td></tr>';return}
+    body.innerHTML=d.logs.map(r=>{
+      const t=(r.ts||r.timestamp||'').replace('T',' ').slice(0,19);
+      const vc={ALLOW:'b-green',MFA_REQUIRED:'b-amber',DENY:'b-red'}[r.verdict]||'b-gray';
+      const sc=r.score>=70?'color:var(--red)':r.score>=35?'color:var(--amber)':'color:var(--green)';
+      return `<tr>
+        <td class="mono">${t}</td><td>${r.full_name}</td>
+        <td><span class="badge b-gray">${r.role}</span></td>
+        <td>${(r.resource||'').replace(/_/g,' ')}</td>
+        <td>${(r.location||r.loc||'').replace(/_/g,' ')}</td>
+        <td>${(r.device||r.device_health||'').replace(/_/g,' ')}</td>
+        <td style="font-weight:600;${sc}">${r.score}</td>
+        <td><span class="badge ${vc}">${r.verdict}</span></td></tr>`;
+    }).join('');
+  }catch(e){console.error(e)}
+}
+
+async function clearLogs(){
+  if(!confirm('Clear all logs?')) return;
+  await api('/logs',{method:'DELETE'});
+  localStats={total:0,allow:0,mfa:0,deny:0};scoreHist=[];
+  updateStats();updateCharts();loadLogs();
+}
+
+// ── Stats ─────────────────────────────────────────────────────
+async function loadStats(){
+  try{
+    const d=await api('/stats');
+    const s=d.summary||{};
+    localStats={total:s.total||0,allow:s.allowed||0,mfa:s.mfa||0,deny:s.denied||0};
+    updateStats(); updateCharts();
+  }catch(e){}
+}
+
+function updateStats(){
+  document.getElementById('s-total').textContent=localStats.total;
+  document.getElementById('s-allow').textContent=localStats.allow;
+  document.getElementById('s-mfa').textContent=localStats.mfa;
+  document.getElementById('s-deny').textContent=localStats.deny;
+}
+
+// ── Charts ────────────────────────────────────────────────────
+function initCharts(){
+  vChart=new Chart(document.getElementById('ch-verdict').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['Allow','MFA','Denied'],datasets:[{data:[0,0,0],
+      backgroundColor:['#22c55e','#f59e0b','#ef4444'],borderWidth:0}]},
+    options:{plugins:{legend:{labels:{color:'#8892a4',font:{size:12}}}}}
+  });
+  sChart=new Chart(document.getElementById('ch-score').getContext('2d'),{
+    type:'bar',
+    data:{labels:['0–20','21–35','36–50','51–70','71–100'],
+      datasets:[{label:'Requests',data:[0,0,0,0,0],
+        backgroundColor:['#22c55e','#22c55e','#f59e0b','#f59e0b','#ef4444'],borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8892a4'},grid:{color:'#2a2d3e'}},
+              y:{ticks:{color:'#8892a4'},grid:{color:'#2a2d3e'},beginAtZero:true}}}
+  });
+}
+
+function updateCharts(){
+  if(!vChart) return;
+  vChart.data.datasets[0].data=[localStats.allow,localStats.mfa,localStats.deny];
+  vChart.update();
+  const b=[0,0,0,0,0];
+  scoreHist.forEach(s=>{if(s<=20)b[0]++;else if(s<=35)b[1]++;else if(s<=50)b[2]++;else if(s<=70)b[3]++;else b[4]++});
+  sChart.data.datasets[0].data=b; sChart.update();
+}
+
+// ── Attack sim ────────────────────────────────────────────────
+async function runSim(){
+  const el=document.getElementById('sim-out');
+  el.innerHTML='<div style="color:var(--muted);padding:10px">Running 5 scenarios...</div>';
+  try{
+    const d=await api('/simulate-attack',{method:'POST'});
+    el.innerHTML=(d.results||[]).map(s=>{
+      const vc={ALLOW:'b-green',MFA_REQUIRED:'b-amber',DENY:'b-red'}[s.verdict]||'b-gray';
+      const icon={ALLOW:'ti-shield-check',MFA_REQUIRED:'ti-device-mobile',DENY:'ti-shield-x'}[s.verdict];
+      const sc=s.risk_score>=70?'var(--red)':s.risk_score>=35?'var(--amber)':'var(--green)';
+      return `<div class="sim-item">
+        <div class="sim-top"><div class="sim-title"><i class="ti ${icon}" style="margin-right:5px"></i>${s.scenario}</div>
+          <span class="badge ${vc}">${s.verdict}</span></div>
+        <div class="sim-meta">User: <strong>${s.user}</strong> (${s.role}) &nbsp;·&nbsp;
+          Score: <strong style="color:${sc}">${s.risk_score}/100</strong> &nbsp;·&nbsp; ${s.reason}</div>
+      </div>`;
+    }).join('');
+    loadLogs(); loadStats();
+  }catch(e){el.innerHTML=`<div style="color:var(--red);padding:10px">Error: ${e.message}</div>`}
+}
+
+// ── Users ─────────────────────────────────────────────────────
+async function loadUsers(){
+  try{
+    const d=await api('/users');
+    const rc={admin:'b-purple',developer:'b-blue',intern:'b-amber',unknown:'b-gray'};
+    document.getElementById('users-body').innerHTML=(d.users||[]).map(u=>`<tr>
+      <td class="mono">${u.username}</td><td>${u.full_name}</td>
+      <td><span class="badge ${rc[u.role]||'b-gray'}">${u.role}</span></td>
+      <td>${u.department}</td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="width:${u.trust_level}%;height:5px;background:var(--blue);border-radius:3px"></div></div>
+        <span style="font-size:11px;color:var(--muted)">${u.trust_level}</span></div></td>
+    </tr>`).join('');
+  }catch(e){}
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+function tab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('p-'+name).classList.add('active');
+  if(name==='charts') loadStats();
+  if(name==='users'&&me?.role==='admin') loadUsers();
+}
+</script>
+</body>
+</html>
